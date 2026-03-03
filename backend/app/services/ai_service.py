@@ -1,5 +1,3 @@
-import json
-import re
 from bson import ObjectId
 from google import genai
 from app.config import GEMINI_API_KEY
@@ -12,27 +10,39 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 def generate_outfit_response(user_id: str, message: str):
 
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
-    wardrobe_items = wardrobe_collection.find({"user_id": user_id})
+    # 🔹 Validate ObjectId
+    try:
+        object_id = ObjectId(user_id)
+    except Exception:
+        return {"error": "Invalid user ID format"}
 
-    wardrobe = [item["item"] for item in wardrobe_items]
+    # 🔹 Fetch user
+    user = users_collection.find_one({"_id": object_id})
+    if not user:
+        return {"error": "User not found"}
 
+    # 🔹 Fetch wardrobe
+    wardrobe_items = wardrobe_collection.find({"user_id": object_id})
+
+    wardrobe = [
+        {
+            "category": item.get("category"),
+            "name": item.get("name"),
+            "color": item.get("color"),
+            "style": item.get("style")
+        }
+        for item in wardrobe_items
+    ]
+
+    if not wardrobe:
+        wardrobe = [{"category": "Shirt", "name": "Basic black shirt", "color": "Black", "style": "Casual"}]
+
+    # 🔹 Safe profile mapping
     profile = {
-        "gender": user["gender"] or "male",
-        "body_type": user["body_type"] or "fit",
-        "style": user["style"] or "casual",
-        "location": user["location"] or "India"
+        "gender": user.get("gender", "male"),
+        "body_type": user.get("body_type", "fit"),
+        "style": ", ".join(user.get("style_preferences", ["casual"])),
     }
-    # wardrobe = [
-    #     "Black formal shirt (slim)",
-    #     "White casual shirt",
-    #     "Navy blazer",
-    #     "Dark blue slim jeans",
-    #     "Charcoal tailored trousers",
-    #     "White sneakers",
-    #     "Brown loafers",
-    #     "Silver minimal watch"
-    # ]
 
     prompt = build_prompt(profile, wardrobe, message)
 
@@ -46,10 +56,7 @@ def generate_outfit_response(user_id: str, message: str):
             }
         )
 
-        raw_text = response.text
-
-        parsed_json = parse_ai_json(raw_text)
-
+        parsed_json = parse_ai_json(response.text)
         return parsed_json
 
     except Exception as e:
