@@ -1,0 +1,15 @@
+.env
+venv/
+app/__pycache__/
+app/routes/__pycache__/
+app/services/__pycache__/
+app/utils/__pycache__/
+test.py
+node_modules/
+dist/
+build/
+*.log
+*.env
+.DS_Store
+.idea/
+.vscode/
